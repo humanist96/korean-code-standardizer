@@ -1,9 +1,9 @@
-# 🔄 Korean Code Variable Name Standardizer
-### 한국어 코드 변수명 표준화 시스템
+# 🤖 KOSCOM 코딩 Agent
+### AI 기반 코드 품질 개선 및 표준화 솔루션
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://korean-code-standardizer.streamlit.app/)
 
-Korean Code Variable Name Standardizer는 Python 코드의 변수명을 표준화하고 개선하는 웹 애플리케이션입니다. 용어사전 기반으로 일관된 명명 규칙을 적용하여 코드 품질을 향상시킵니다.
+KOSCOM 코딩 Agent는 AI 기술을 활용하여 Python 코드의 변수명을 표준화하고 코드 품질을 개선하는 웹 애플리케이션입니다. 용어사전 기반으로 일관된 명명 규칙을 적용하고, 대화형 인터페이스를 통해 쉽게 사용할 수 있습니다.
 
 ## ✨ 주요 기능
 

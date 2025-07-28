@@ -453,33 +453,77 @@ class ChatbotUI:
         with col1:
             if st.button("📝 예제 코드", use_container_width=True):
                 code, description, pattern = self.chatbot.code_examples.generate_random_code()
+                user_message = f"이 코드를 변환해줘:\n```python\n{code}\n```"
+                
+                # Add user message
                 st.session_state.chat_messages.append({
                     "role": "user",
-                    "content": f"이 코드를 변환해줘:\n```python\n{code}\n```"
+                    "content": user_message
+                })
+                
+                # Process and add response
+                response = self.chatbot.process_message(user_message)
+                st.session_state.chat_messages.append({
+                    "role": "assistant",
+                    "content": response,
+                    "type": response["type"]
                 })
                 st.rerun()
         
         with col2:
             if st.button("📊 통계 보기", use_container_width=True):
+                user_message = "통계 보여줘"
+                
+                # Add user message
                 st.session_state.chat_messages.append({
                     "role": "user",
-                    "content": "통계 보여줘"
+                    "content": user_message
+                })
+                
+                # Process and add response
+                response = self.chatbot.process_message(user_message)
+                st.session_state.chat_messages.append({
+                    "role": "assistant",
+                    "content": response,
+                    "type": response["type"]
                 })
                 st.rerun()
         
         with col3:
             if st.button("🔍 용어 검색", use_container_width=True):
+                user_message = "용어 검색 방법 알려줘"
+                
+                # Add user message
                 st.session_state.chat_messages.append({
                     "role": "user",
-                    "content": "용어 검색 방법 알려줘"
+                    "content": user_message
+                })
+                
+                # Process and add response
+                response = self.chatbot.process_message(user_message)
+                st.session_state.chat_messages.append({
+                    "role": "assistant",
+                    "content": response,
+                    "type": response["type"]
                 })
                 st.rerun()
         
         with col4:
             if st.button("❓ 도움말", use_container_width=True):
+                user_message = "도움말"
+                
+                # Add user message
                 st.session_state.chat_messages.append({
                     "role": "user",
-                    "content": "도움말"
+                    "content": user_message
+                })
+                
+                # Process and add response
+                response = self.chatbot.process_message(user_message)
+                st.session_state.chat_messages.append({
+                    "role": "assistant",
+                    "content": response,
+                    "type": response["type"]
                 })
                 st.rerun()
     

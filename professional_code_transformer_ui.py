@@ -27,8 +27,8 @@ from chatbot_interface import CodeTransformationChatbot, ChatbotUI
 
 # Page configuration
 st.set_page_config(
-    page_title="코드 변수명 표준화 변환기",
-    page_icon="🔄",
+    page_title="KOSCOM 코딩 Agent",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -487,7 +487,7 @@ class ProfessionalCodeTransformerUI:
         """Run the application"""
         # Sidebar navigation
         with st.sidebar:
-            st.markdown("### 🔄 코드 변수명 표준화")
+            st.markdown("### 🤖 KOSCOM 코딩 Agent")
             st.markdown("---")
             
             if st.button("🏠 홈", use_container_width=True):
@@ -536,8 +536,8 @@ class ProfessionalCodeTransformerUI:
         # Hero Section
         st.markdown('<div class="main-header animate-slide-in">', unsafe_allow_html=True)
         st.markdown("""
-        <h1 style="margin: 0;">🔄 코드 변수명 표준화 시스템</h1>
-        <p style="margin-top: 0.5rem; font-size: 1.2rem;">엔터프라이즈급 코드 품질 관리 솔루션</p>
+        <h1 style="margin: 0;">🤖 KOSCOM 코딩 Agent</h1>
+        <p style="margin-top: 0.5rem; font-size: 1.2rem;">AI 기반 코드 품질 개선 및 표준화 솔루션</p>
         """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
