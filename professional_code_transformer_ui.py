@@ -22,6 +22,7 @@ from enhanced_code_reviewer import EnhancedCodeReviewer
 from code_examples import CodeExamples
 from settings_manager import SettingsManager
 from settings_ui import SettingsUI
+from chatbot_interface import CodeTransformationChatbot, ChatbotUI
 
 
 # Page configuration
@@ -465,6 +466,10 @@ class ProfessionalCodeTransformerUI:
         # Initialize code examples
         self.code_examples = CodeExamples()
         
+        # Initialize chatbot
+        self.chatbot = CodeTransformationChatbot(self.terminology_manager, self.stats_manager)
+        self.chatbot_ui = ChatbotUI(self.chatbot)
+        
         self._initialize_session_state()
     
     def _initialize_session_state(self):
@@ -493,6 +498,10 @@ class ProfessionalCodeTransformerUI:
                 st.session_state.page = 'transformer'
                 st.rerun()
             
+            if st.button("🤖 AI 챗봇", use_container_width=True):
+                st.session_state.page = 'chatbot'
+                st.rerun()
+            
             if st.button("📚 용어사전", use_container_width=True):
                 st.session_state.page = 'terminology'
                 st.rerun()
@@ -513,6 +522,8 @@ class ProfessionalCodeTransformerUI:
             self._render_home()
         elif st.session_state.page == 'transformer':
             self._render_transformer()
+        elif st.session_state.page == 'chatbot':
+            self._render_chatbot()
         elif st.session_state.page == 'terminology':
             self._render_terminology()
         elif st.session_state.page == 'statistics':
@@ -533,10 +544,10 @@ class ProfessionalCodeTransformerUI:
         # Key Metrics
         self._render_key_metrics()
         
-        # Feature Grid
+        # Feature Grid - First Row
         st.markdown('<div class="feature-grid">', unsafe_allow_html=True)
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             st.markdown("""
@@ -552,6 +563,18 @@ class ProfessionalCodeTransformerUI:
         
         with col2:
             st.markdown("""
+            <div class="feature-card" onclick="window.location.hash='chatbot'">
+                <div class="feature-icon">🤖</div>
+                <div class="feature-title">AI 챗봇</div>
+                <div class="feature-desc">대화형 코드 변환 서비스</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("시작하기", key="chatbot_btn", use_container_width=True):
+                st.session_state.page = 'chatbot'
+                st.rerun()
+        
+        with col3:
+            st.markdown("""
             <div class="feature-card" onclick="window.location.hash='terminology'">
                 <div class="feature-icon">📚</div>
                 <div class="feature-title">용어사전 관리</div>
@@ -562,7 +585,10 @@ class ProfessionalCodeTransformerUI:
                 st.session_state.page = 'terminology'
                 st.rerun()
         
-        with col3:
+        # Feature Grid - Second Row
+        col4, col5, col6 = st.columns(3)
+        
+        with col4:
             st.markdown("""
             <div class="feature-card" onclick="window.location.hash='statistics'">
                 <div class="feature-icon">📊</div>
@@ -574,7 +600,7 @@ class ProfessionalCodeTransformerUI:
                 st.session_state.page = 'statistics'
                 st.rerun()
         
-        with col4:
+        with col5:
             st.markdown("""
             <div class="feature-card">
                 <div class="feature-icon">⚙️</div>
@@ -986,6 +1012,18 @@ class ProfessionalCodeTransformerUI:
         
         # Render settings UI
         self.settings_ui.render()
+    
+    def _render_chatbot(self):
+        """Render chatbot page"""
+        st.markdown('<div class="main-header">', unsafe_allow_html=True)
+        st.markdown("""
+        <h1 style="margin: 0;">🤖 AI 코드 변환 챗봇</h1>
+        <p style="margin-top: 0.5rem;">대화형 인터페이스로 코드 변환 서비스를 이용하세요</p>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Render chatbot UI
+        self.chatbot_ui.render()
     
     def _render_file_upload(self):
         """Render file upload interface"""
