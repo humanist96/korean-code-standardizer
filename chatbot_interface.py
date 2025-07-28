@@ -36,9 +36,9 @@ class CodeTransformationChatbot:
             return self._handle_show_example(message)
         elif intent == "explain_issue":
             return self._handle_explain_issue(message)
-        elif intent == "show_statistics":
+        elif intent == "redirect_statistics":
             return self._handle_show_statistics()
-        elif intent == "search_term":
+        elif intent == "redirect_terminology":
             return self._handle_search_term(message)
         elif intent == "help":
             return self._handle_help()
@@ -65,13 +65,13 @@ class CodeTransformationChatbot:
         if any(keyword in message_lower for keyword in ["설명", "explain", "이유", "why", "무엇", "what"]):
             return "explain_issue"
         
-        # Statistics request
+        # Statistics request - redirect to page
         if any(keyword in message_lower for keyword in ["통계", "statistics", "얼마나", "how many"]):
-            return "show_statistics"
+            return "redirect_statistics"
         
-        # Term search
+        # Term search - redirect to page
         if any(keyword in message_lower for keyword in ["용어", "term", "찾", "search", "검색"]):
-            return "search_term"
+            return "redirect_terminology"
         
         # Help request
         if any(keyword in message_lower for keyword in ["도움", "help", "사용법", "how to"]):
@@ -204,22 +204,27 @@ class CodeTransformationChatbot:
                 "issues": ["의미 없는 약어 사용", "한글 변수명 사용", "명명 규칙 불일치"]
             }
         elif "약어" in message_lower or "abbreviation" in message_lower:
-            examples = self.code_examples.get_examples_by_category("basic")
-            example = examples[0] if examples else None
+            examples = self.code_examples.get_all_basic_examples()
+            example = list(examples.values())[0] if examples else None
             example_type = "abbreviation"
         else:
             # Default to showing a basic example
-            examples = self.code_examples.get_all_examples()
-            example = examples[0] if examples else None
+            examples = self.code_examples.get_all_basic_examples()
+            example = list(examples.values())[0] if examples else None
             example_type = "basic"
         
         if example:
+            # Extract issues from the example structure
+            issues = []
+            if "issues" in example:
+                issues = [issue[0] if isinstance(issue, tuple) else str(issue) for issue in example["issues"]]
+            
             return {
                 "type": "example",
                 "example_type": example_type,
-                "code": example["code"],
-                "description": example["description"],
-                "issues": example["common_issues"]
+                "code": example.get("code", ""),
+                "description": example.get("description", "예제 코드"),
+                "issues": issues or ["변수명 개선 필요"]
             }
         else:
             return {
@@ -270,70 +275,19 @@ class CodeTransformationChatbot:
         }
     
     def _handle_show_statistics(self) -> Dict[str, any]:
-        """Handle statistics request"""
-        stats = self.stats_manager.get_summary_stats()
-        today_stats = self.stats_manager.get_today_statistics()
-        
+        """Handle statistics request - redirect to statistics page"""
         return {
-            "type": "statistics",
-            "total_transformations": stats['total_transformations'],
-            "total_changes": stats['total_changes'],
-            "average_confidence": stats['average_confidence'],
-            "today_files": today_stats['total_files'],
-            "today_changes": today_stats['total_changes'],
-            "most_common_issue": stats['most_common_issue']
+            "type": "redirect",
+            "redirect_to": "statistics",
+            "message": "통계 페이지로 이동합니다..."
         }
     
     def _handle_search_term(self, message: str) -> Dict[str, any]:
-        """Handle term search request"""
-        # Extract search term
-        search_patterns = [
-            r'"([^"]+)"',  # Quoted term
-            r'\'([^\']+)\'',  # Single quoted term
-            r'검색\s+(\w+)',  # Korean search pattern
-            r'search\s+(\w+)',  # English search pattern
-            r'찾기\s+(\w+)',  # Korean find pattern
-        ]
-        
-        search_term = None
-        for pattern in search_patterns:
-            match = re.search(pattern, message)
-            if match:
-                search_term = match.group(1)
-                break
-        
-        if not search_term:
-            # Try to extract the last word as search term
-            words = message.split()
-            if len(words) > 1:
-                search_term = words[-1]
-        
-        if search_term:
-            # Search in terminology
-            results = self.terminology_manager.search_terms(search_term)
-            
-            # Convert Term objects to dictionaries
-            term_dicts = []
-            for term in results[:5]:  # Limit to 5 results
-                term_dict = {
-                    'korean': term.korean_name,
-                    'english': term.english_name,
-                    'abbreviation': term.abbreviation,
-                    'category': term.category,
-                    'tags': term.tags if hasattr(term, 'tags') else [],
-                    'description': term.description if hasattr(term, 'description') else ''
-                }
-                term_dicts.append(term_dict)
-            
-            return {
-                "type": "term_search",
-                "search_term": search_term,
-                "results": term_dicts
-            }
-        
+        """Handle term search request - redirect to terminology page"""
         return {
-            "type": "error",
-            "content": "검색할 용어를 찾을 수 없습니다. '용어 검색 user' 형식으로 입력해주세요."
+            "type": "redirect",
+            "redirect_to": "terminology",
+            "message": "용어사전 페이지로 이동합니다..."
         }
     
     def _handle_help(self) -> Dict[str, any]:
@@ -440,7 +394,22 @@ class ChatbotUI:
             with st.spinner("분석 중..."):
                 response = self.chatbot.process_message(user_input)
             
-            # Add assistant response
+            # Handle redirect responses
+            if response.get("type") == "redirect":
+                redirect_to = response.get('redirect_to', '')
+                if redirect_to:
+                    # Add a redirect message to chat
+                    st.session_state.chat_messages.append({
+                        "role": "assistant",
+                        "content": response,
+                        "type": response["type"]
+                    })
+                    # Navigate to the target page
+                    st.session_state.page = redirect_to
+                    st.rerun()
+                    return
+            
+            # Add assistant response for non-redirect messages
             st.session_state.chat_messages.append({
                 "role": "assistant",
                 "content": response,
@@ -478,40 +447,14 @@ class ChatbotUI:
         
         with col2:
             if st.button("📊 통계 보기", use_container_width=True):
-                user_message = "통계 보여줘"
-                
-                # Add user message
-                st.session_state.chat_messages.append({
-                    "role": "user",
-                    "content": user_message
-                })
-                
-                # Process and add response
-                response = self.chatbot.process_message(user_message)
-                st.session_state.chat_messages.append({
-                    "role": "assistant",
-                    "content": response,
-                    "type": response["type"]
-                })
+                # Navigate to statistics page
+                st.session_state.page = 'statistics'
                 st.rerun()
         
         with col3:
-            if st.button("🔍 용어 검색", use_container_width=True):
-                user_message = "용어 검색 방법 알려줘"
-                
-                # Add user message
-                st.session_state.chat_messages.append({
-                    "role": "user",
-                    "content": user_message
-                })
-                
-                # Process and add response
-                response = self.chatbot.process_message(user_message)
-                st.session_state.chat_messages.append({
-                    "role": "assistant",
-                    "content": response,
-                    "type": response["type"]
-                })
+            if st.button("📚 용어사전", use_container_width=True):
+                # Navigate to terminology page
+                st.session_state.page = 'terminology'
                 st.rerun()
         
         with col4:
@@ -561,6 +504,8 @@ class ChatbotUI:
             self._render_term_search_response(response)
         elif response_type == "help":
             self._render_help_response(response)
+        elif response_type == "redirect":
+            self._render_redirect_response(response)
         elif response_type == "error":
             st.error(response["content"])
         else:
@@ -698,3 +643,17 @@ class ChatbotUI:
                 st.write(cmd.get('description', ''))
                 if cmd.get('example'):
                     st.code(cmd['example'])
+    
+    def _render_redirect_response(self, response: Dict):
+        """Render redirect response and navigate to page"""
+        redirect_to = response.get('redirect_to', '')
+        message = response.get('message', '페이지로 이동합니다...')
+        
+        # Show message
+        st.info(f"🚀 {message}")
+        
+        # Set page in session state and trigger navigation
+        if redirect_to:
+            st.session_state.page = redirect_to
+            # Force a rerun to navigate to the new page
+            st.rerun()
