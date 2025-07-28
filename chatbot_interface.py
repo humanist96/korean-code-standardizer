@@ -155,8 +155,15 @@ class CodeTransformationChatbot:
         
         # Determine example type
         if "랜덤" in message_lower or "random" in message_lower:
-            example = self.code_examples.get_random_example()
-            example_type = "random"
+            # Generate random code
+            code, description, pattern = self.code_examples.generate_random_code()
+            return {
+                "type": "example",
+                "example_type": "random",
+                "code": code,
+                "description": description,
+                "issues": ["의미 없는 약어 사용", "한글 변수명 사용", "명명 규칙 불일치"]
+            }
         elif "약어" in message_lower or "abbreviation" in message_lower:
             examples = self.code_examples.get_examples_by_category("basic")
             example = examples[0] if examples else None
@@ -399,10 +406,10 @@ class ChatbotUI:
         
         with col1:
             if st.button("📝 예제 코드", use_container_width=True):
-                example = self.chatbot.code_examples.get_random_example()
+                code, description, pattern = self.chatbot.code_examples.generate_random_code()
                 st.session_state.chat_messages.append({
                     "role": "user",
-                    "content": f"이 코드를 변환해줘:\n```python\n{example['code']}\n```"
+                    "content": f"이 코드를 변환해줘:\n```python\n{code}\n```"
                 })
                 st.rerun()
         
