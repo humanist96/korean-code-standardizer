@@ -312,18 +312,24 @@ class CodeTransformationChatbot:
             # Search in terminology
             results = self.terminology_manager.search_terms(search_term)
             
-            if results:
-                return {
-                    "type": "term_search",
-                    "search_term": search_term,
-                    "results": results[:5]  # Limit to 5 results
+            # Convert Term objects to dictionaries
+            term_dicts = []
+            for term in results[:5]:  # Limit to 5 results
+                term_dict = {
+                    'korean': term.korean_name,
+                    'english': term.english_name,
+                    'abbreviation': term.abbreviation,
+                    'category': term.category,
+                    'tags': term.tags if hasattr(term, 'tags') else [],
+                    'description': term.description if hasattr(term, 'description') else ''
                 }
-            else:
-                return {
-                    "type": "term_search",
-                    "search_term": search_term,
-                    "results": []
-                }
+                term_dicts.append(term_dict)
+            
+            return {
+                "type": "term_search",
+                "search_term": search_term,
+                "results": term_dicts
+            }
         
         return {
             "type": "error",
@@ -562,44 +568,74 @@ class ChatbotUI:
     
     def _render_transformation_response(self, response: Dict):
         """Render code transformation response"""
-        st.success(f"✅ {response['issues_found']}개의 개선사항을 발견했습니다!")
+        issues_found = response.get('issues_found', 0)
+        st.success(f"✅ {issues_found}개의 개선사항을 발견했습니다!")
         
         # Show transformation details
-        if response['suggestions']:
+        suggestions = response.get('suggestions', [])
+        if suggestions:
             st.markdown("**발견된 이슈:**")
-            for suggestion in response['suggestions']:
-                st.markdown(f"- `{suggestion['original']}` → `{suggestion['suggestion']}` ({suggestion['reason']})")
+            for suggestion in suggestions:
+                original = suggestion.get('original', '')
+                suggested = suggestion.get('suggestion', suggestion.get('suggested', ''))
+                reason = suggestion.get('reason', '')
+                st.markdown(f"- `{original}` → `{suggested}` ({reason})")
         
         # Show code comparison
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("**원본 코드:**")
-            st.code(response['original_code'], language="python")
+            original_code = response.get('original_code', '')
+            st.code(original_code, language="python")
         
         with col2:
             st.markdown("**개선된 코드:**")
-            st.code(response['transformed_code'], language="python")
+            transformed_code = response.get('transformed_code', '')
+            st.code(transformed_code, language="python")
         
-        st.info(f"신뢰도: {response['confidence']:.1%}")
+        confidence = response.get('confidence', 0)
+        if confidence and isinstance(confidence, (int, float)):
+            st.info(f"신뢰도: {confidence:.1%}")
+        else:
+            st.info("신뢰도: N/A")
     
     def _render_example_response(self, response: Dict):
         """Render example response"""
-        st.markdown(f"**{response['description']}**")
-        st.code(response['code'], language="python")
+        description = response.get('description', '예제 코드')
+        st.markdown(f"**{description}**")
         
-        if response['issues']:
+        code = response.get('code', '')
+        if code:
+            st.code(code, language="python")
+        
+        issues = response.get('issues', [])
+        if issues:
             st.markdown("**예상되는 이슈:**")
-            for issue in response['issues']:
+            for issue in issues:
                 st.markdown(f"- {issue}")
     
     def _render_explanation_response(self, response: Dict):
         """Render explanation response"""
-        content = response['content']
-        st.markdown(f"### {content['title']}")
-        st.write(content['description'])
-        st.info(f"**해결 방법:** {content['solution']}")
-        st.code(content['example'])
+        content = response.get('content', {})
+        
+        if isinstance(content, dict):
+            title = content.get('title', '설명')
+            st.markdown(f"### {title}")
+            
+            description = content.get('description', '')
+            if description:
+                st.write(description)
+            
+            solution = content.get('solution', '')
+            if solution:
+                st.info(f"**해결 방법:** {solution}")
+            
+            example = content.get('example', '')
+            if example:
+                st.code(example)
+        else:
+            st.write(content)
     
     def _render_statistics_response(self, response: Dict):
         """Render statistics response"""
@@ -608,31 +644,45 @@ class ChatbotUI:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.metric("전체 변환", f"{response['total_transformations']:,}회")
-            st.metric("오늘 변환", f"{response['today_files']}개 파일")
+            st.metric("전체 변환", f"{response.get('total_transformations', 0):,}회")
+            st.metric("오늘 변환", f"{response.get('today_files', 0)}개 파일")
         
         with col2:
-            st.metric("총 개선사항", f"{response['total_changes']:,}개")
-            st.metric("오늘 개선", f"{response['today_changes']}개")
+            st.metric("총 개선사항", f"{response.get('total_changes', 0):,}개")
+            st.metric("오늘 개선", f"{response.get('today_changes', 0)}개")
         
         with col3:
-            st.metric("평균 신뢰도", f"{response['average_confidence']:.1%}")
-            if response['most_common_issue']:
+            avg_confidence = response.get('average_confidence', 0)
+            if avg_confidence and isinstance(avg_confidence, (int, float)):
+                st.metric("평균 신뢰도", f"{avg_confidence:.1%}")
+            else:
+                st.metric("평균 신뢰도", "0.0%")
+            
+            if response.get('most_common_issue'):
                 st.metric("가장 많은 이슈", response['most_common_issue'])
     
     def _render_term_search_response(self, response: Dict):
         """Render term search response"""
-        st.markdown(f"### 🔍 '{response['search_term']}' 검색 결과")
+        search_term = response.get('search_term', '')
+        st.markdown(f"### 🔍 '{search_term}' 검색 결과")
         
-        if response['results']:
-            for term in response['results']:
-                with st.expander(f"{term['korean']} → {term['english']}"):
+        results = response.get('results', [])
+        if results:
+            for term in results:
+                korean = term.get('korean', '')
+                english = term.get('english', '')
+                
+                with st.expander(f"{korean} → {english}"):
                     if term.get('abbreviation'):
                         st.write(f"**약어:** {term['abbreviation']}")
                     if term.get('category'):
                         st.write(f"**카테고리:** {term['category']}")
                     if term.get('tags'):
-                        st.write(f"**태그:** {', '.join(term['tags'])}")
+                        tags = term['tags']
+                        if isinstance(tags, list):
+                            st.write(f"**태그:** {', '.join(tags)}")
+                        else:
+                            st.write(f"**태그:** {tags}")
                     if term.get('description'):
                         st.write(f"**설명:** {term['description']}")
         else:
@@ -642,7 +692,9 @@ class ChatbotUI:
         """Render help response"""
         st.markdown("### ❓ 사용 가능한 명령어")
         
-        for cmd in response['commands']:
-            with st.expander(cmd['command']):
-                st.write(cmd['description'])
-                st.code(cmd['example'])
+        commands = response.get('commands', [])
+        for cmd in commands:
+            with st.expander(cmd.get('command', '명령어')):
+                st.write(cmd.get('description', ''))
+                if cmd.get('example'):
+                    st.code(cmd['example'])
