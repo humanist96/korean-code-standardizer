@@ -49,10 +49,13 @@ class CodeTransformationChatbot:
         """Analyze user message intent"""
         message_lower = message.lower()
         
-        # Code transformation intent
-        if any(keyword in message_lower for keyword in ["변환", "transform", "코드", "code", "분석", "analyze"]):
-            if "```" in message or self._contains_code_pattern(message):
-                return "transform_code"
+        # Check if message contains code first
+        if "```" in message or self._contains_code_pattern(message):
+            return "transform_code"
+        
+        # Code transformation intent - more flexible detection
+        if any(keyword in message_lower for keyword in ["변환", "transform", "분석", "analyze", "수정", "fix", "개선", "improve", "검토", "review"]):
+            return "transform_code"
         
         # Example request
         if any(keyword in message_lower for keyword in ["예제", "example", "보여", "show"]):
@@ -83,12 +86,17 @@ class CodeTransformationChatbot:
             r'class\s+\w+',
             r'import\s+\w+',
             r'from\s+\w+',
-            r'\w+\s*=\s*\w+',
-            r'\w+\(\)',
+            r'\w+\s*=\s*[\w\'"()]',  # Variable assignment
+            r'\w+\s*\([^)]*\)',  # Function call
+            r'if\s+.*:',  # If statement
+            r'for\s+\w+\s+in',  # For loop
+            r'while\s+.*:',  # While loop
+            r'return\s+',  # Return statement
+            r'print\s*\(',  # Print statement
         ]
         
         for pattern in code_patterns:
-            if re.search(pattern, message):
+            if re.search(pattern, message, re.IGNORECASE):
                 return True
         return False
     
@@ -99,15 +107,34 @@ class CodeTransformationChatbot:
         if code_block_match:
             return code_block_match.group(1).strip()
         
-        # Check for inline code
+        # Check for backtick inline code
+        inline_code_match = re.search(r'`([^`]+)`', message)
+        if inline_code_match and self._contains_code_pattern(inline_code_match.group(1)):
+            return inline_code_match.group(1)
+        
+        # Try to extract code from the entire message
         lines = message.split('\n')
         code_lines = []
+        in_code_block = False
+        
         for line in lines:
-            if self._contains_code_pattern(line):
+            # Skip obvious non-code lines
+            if line.strip().startswith(('이', '이것', '이거', '여기', '코드', '변환', '분석', '수정')):
+                continue
+            
+            # Check if line looks like code
+            if self._contains_code_pattern(line) or in_code_block:
                 code_lines.append(line)
+                in_code_block = True
+            elif in_code_block and line.strip() == '':
+                # Empty line in code block
+                code_lines.append(line)
+            elif in_code_block and not line.strip().startswith(' '):
+                # End of code block
+                in_code_block = False
         
         if code_lines:
-            return '\n'.join(code_lines)
+            return '\n'.join(code_lines).strip()
         
         return None
     
@@ -116,9 +143,21 @@ class CodeTransformationChatbot:
         code = self._extract_code_from_message(message)
         
         if not code:
+            # Provide helpful guidance
             return {
-                "type": "error",
-                "content": "코드를 찾을 수 없습니다. 코드를 ``` 블록 안에 넣거나 직접 입력해주세요."
+                "type": "help",
+                "commands": [
+                    {
+                        "command": "코드 변환 방법",
+                        "description": "다음과 같은 방법으로 코드를 입력해주세요:",
+                        "example": "```python\ndef process_usr_data(usr_id):\n    return usr_id\n```"
+                    },
+                    {
+                        "command": "간단한 코드",
+                        "description": "한 줄 코드도 분석 가능합니다:",
+                        "example": "usr_cnt = len(usr_list)"
+                    }
+                ]
             }
         
         # Transform code
@@ -326,9 +365,16 @@ class CodeTransformationChatbot:
     
     def _handle_general_query(self, message: str) -> Dict[str, any]:
         """Handle general queries"""
+        # Check if user might be trying to input code without proper markers
+        if any(char in message for char in ['=', '(', ')', 'def', 'class', 'import']):
+            return {
+                "type": "general",
+                "content": "코드를 입력하신 것 같습니다. 코드 블록을 사용해주세요:\n\n```python\n여기에 코드 입력\n```\n\n또는 '코드 변환' 키워드와 함께 입력해주세요."
+            }
+        
         return {
             "type": "general",
-            "content": "코드를 입력하시면 변수명을 분석하고 개선해드립니다. '도움말'을 입력하면 사용 가능한 명령어를 볼 수 있습니다."
+            "content": "안녕하세요! 저는 코드 변수명 표준화 AI입니다. 🤖\n\n다음과 같이 사용해주세요:\n• Python 코드를 ``` 블록 안에 입력\n• '예제 보여줘'로 예제 확인\n• '통계'로 변환 통계 확인\n• '도움말'로 전체 명령어 확인"
         }
 
 
